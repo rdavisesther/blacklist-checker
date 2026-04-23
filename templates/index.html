@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blacklist Checker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    body {
+      background: #0f172a;
+      color: #fff;
+      min-height: 100vh;
+      padding: 30px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #111827;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #38bdf8;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: #1f2937;
+      border-radius: 14px;
+      padding: 18px;
+      border: 1px solid #334155;
+    }
+
+    .card h2 {
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      background: #0b1220;
+      color: #fff;
+      border: 1px solid #475569;
+      border-radius: 10px;
+      padding: 12px;
+      resize: vertical;
+      outline: none;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    textarea:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .muted {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .actions {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    button {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background: #0ea5e9;
+      transform: translateY(-1px);
+    }
+
+    .result {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 20px;
+      margin-top: 10px;
+      white-space: pre-line;
+      line-height: 1.9;
+      font-size: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Blacklist Checker</h1>
+
+    <div class="grid">
+      <div class="card">
+        <h2>IP Addresses</h2>
+        <label for="ips">Enter one or more IP addresses (one per line or separated by spaces)</label>
+        <textarea id="ips" placeholder="1.1.1.1
+8.8.8.8
+192.168.1.1"></textarea>
+        <div class="muted">Example: one IP per line</div>
+      </div>
+
+      <div class="card">
+        <h2>Domains</h2>
+        <label for="domains">Enter one or more domain names (one per line)</label>
+        <textarea id="domains" placeholder="example.com
+test.net
+mydomain.org"></textarea>
+        <div class="muted">Example: example.com</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button onclick="checkData()">Check</button>
+    </div>
+
+    <div class="result" id="result">🟤 CSS        : 0 Listed
+🟠 XBL        : 0 Listed
+🔵 PBL        : 0 Listed
+🔴 SBL        : 0 Listed
+🟢 Barracuda  : 0 Listed
+✅ Clean      : 0
+
+━━━━━━━━━━━━━━
+🌐 DOMAINS
+━━━━━━━━━━━━━━
+🌍 DBL        : 0 Listed</div>
+  </div>
+
+  <script>
+    function parseLines(text) {
+      return text
+        .split(/\n|,|;|\s+/)
+        .map(x => x.trim())
+        .filter(x => x.length > 0);
+    }
+
+    async function checkData() {
+      const ips = parseLines(document.getElementById("ips").value);
+      const domains = parseLines(document.getElementById("domains").value);
+
+      const res = await fetch("/check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ips, domains })
+      });
+
+      const data = await res.json();
+
+      document.getElementById("result").innerText = `
+🟤 CSS        : ${data.css} Listed
+🟠 XBL        : ${data.xbl} Listed
+🔵 PBL        : ${data.pbl} Listed
+🔴 SBL        : ${data.sbl} Listed
+🟢 Barracuda  : ${data.barracuda} Listed
+✅ Clean      : ${data.clean}
+
+━━━━━━━━━━━━━━
+🌐 DOMAINS
+━━━━━━━━━━━━━━
+🌍 DBL        : ${data.dbl} Listed
+      `.trim();
+    }
+  </script>
+</body>
+</html>
