@@ -13,10 +13,6 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 ZEN_ZONE = "zen.spamhaus.org"
 DBL_ZONE = "dbl.spamhaus.org"
 
-# Spamhaus return codes used here:
-# CSS in ZEN => 127.0.0.3
-# ZEN includes SBL, CSS, XBL, PBL
-# We treat known ZEN response codes conservatively.
 ZEN_CODE_MAP = {
     "127.0.0.2": "SBL",
     "127.0.0.3": "CSS",
@@ -42,14 +38,19 @@ def is_ipv4(value: str) -> bool:
 def is_domain(value: str) -> bool:
     if not value or len(value) > 253:
         return False
-    parts = value.strip(".").split(".")
+
+    value = value.strip().lower().strip(".")
+    parts = value.split(".")
+
     if len(parts) < 2:
         return False
+
     for part in parts:
         if not part or len(part) > 63:
             return False
         if part.startswith("-") or part.endswith("-"):
             return False
+
     return True
 
 def reverse_ipv4(ip: str) -> str:
@@ -59,7 +60,13 @@ def dns_a_lookup(name: str) -> list[str]:
     try:
         answers = dns.resolver.resolve(name, "A")
         return [r.to_text() for r in answers]
-    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.exception.Timeout):
+    except (
+        dns.resolver.NXDOMAIN,
+        dns.resolver.NoAnswer,
+        dns.resolver.NoNameservers,
+        dns.exception.Timeout,
+        ValueError
+    ):
         return []
 
 def check_ip_spamhaus(ip: str) -> dict:
@@ -72,6 +79,8 @@ def check_ip_spamhaus(ip: str) -> dict:
     codes = dns_a_lookup(query)
 
     for code in codes:
+        if not code.startswith("127.0.0."):
+            continue
         list_name = ZEN_CODE_MAP.get(code)
         if list_name:
             result[list_name] = True
@@ -82,12 +91,15 @@ def check_domain_dbl(domain: str) -> bool:
     if not is_domain(domain):
         return False
 
-    query = f"{domain.strip('.').lower()}.{DBL_ZONE}"
+    domain = domain.strip().lower().strip(".")
+    query = f"{domain}.{DBL_ZONE}"
     codes = dns_a_lookup(query)
 
-    # Any valid A answer on DBL domain query means listed for our usage here.
-    # Never use DBL for IP lookups.
-    return len(codes) > 0
+    for code in codes:
+        if code.startswith("127.0.1."):
+            return True
+
+    return False
 
 def build_result() -> str:
     ips = read_list("ips.txt")
@@ -103,10 +115,10 @@ def build_result() -> str:
 
     dbl_count = 0
 
-    for ip in ips:
-        if not is_ipv4(ip):
-            continue
+    valid_ips = [ip for ip in ips if is_ipv4(ip)]
+    valid_domains = [domain for domain in domains if is_domain(domain)]
 
+    for ip in valid_ips:
         res = check_ip_spamhaus(ip)
         listed = False
 
@@ -118,7 +130,7 @@ def build_result() -> str:
         if not listed:
             counts["Clean"] += 1
 
-    for domain in domains:
+    for domain in valid_domains:
         if check_domain_dbl(domain):
             dbl_count += 1
 
