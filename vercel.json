@@ -5,7 +5,7 @@
     { "src": "api/cron.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/api/cron", "dest": "api/cron.py" },
+    { "src": "^/api/cron$", "dest": "api/cron.py" },
     { "src": "/(.*)", "dest": "app.py" }
   ],
   "crons": [
